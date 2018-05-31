@@ -59,6 +59,7 @@ public class MPlayerController : NetworkBehaviour {
 
     [SerializeField]
     float timeBetweenShots = 2f;
+    [SyncVar(hook = "OnCanShootChanged")]
     private bool canShoot = true;
     private AudioSource aud;
     private Collider collidr;
@@ -74,6 +75,14 @@ public class MPlayerController : NetworkBehaviour {
 
     [SerializeField]
     Text namePlate;
+
+    IKAimWeapon ikAimWeapon;
+    [SerializeField]
+    Vector3 aimOffsetEulers;
+
+    Quaternion aimOffset {
+        get { return Quaternion.Euler(aimOffsetEulers); }
+    }
 
 
     public Vector2 inputXZ {
@@ -121,8 +130,12 @@ public class MPlayerController : NetworkBehaviour {
 
         if(Input.GetMouseButton(0)) {
             Ray shootRay = shootDirection();
+            ikAimWeapon.shouldAim = true;
+            
             //CmdFire(shootRay.origin, shootRay.direction); // Think this broke shooting on client !!
             CmdFire(bulletSpawn.position, shootRay.direction);
+        } else {
+            ikAimWeapon.shouldAim = false;
         }
 
         if (Input.GetKeyDown(KeyCode.Space)) {
@@ -184,6 +197,7 @@ public class MPlayerController : NetworkBehaviour {
         if (Physics.Raycast(nudgedOrigin, camRay.direction, out shootHitInfo, 10000f)) {
             destination = shootHitInfo.point;
         }
+        ikAimWeapon.aimTargetPos = destination;
 
         return new Ray(nudgedOrigin, (destination - bulletSpawn.transform.position).normalized);
         //return (destination - bulletSpawn.transform.position).normalized;
@@ -251,15 +265,19 @@ public class MPlayerController : NetworkBehaviour {
         dbugWithName("GotAKill ? score: " + GetComponent<Score>().score + " --0r: " + score.score);
     }
 
+    private void OnCanShootChanged(bool nextCanShoot) {
+        //ikAimWeapon.shouldAim = nextCanShoot;
+    }
+
     private IEnumerator shotTimer() {
         if(canShoot) {
             canShoot = false;
-
             // TODO: find a better shooting anim
             //animState.shooting = true;
 
             yield return new WaitForSeconds(timeBetweenShots);
             canShoot = true;
+
 
             //animState.shooting = false;
         }
@@ -302,6 +320,7 @@ public class MPlayerController : NetworkBehaviour {
 
         localHealth = GetComponent<Health>();
         audioListenr = gameObject.AddComponent<AudioListener>();
+        ikAimWeapon = GetComponent<IKAimWeapon>();
 
         score.SetPlayerData(new MPlayerData()
         {

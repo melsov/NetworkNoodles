@@ -38,7 +38,7 @@
 
 *.sln
 *.csproj
-!*TileScene.unity
+
 
 
 #*.prefs
@@ -48,8 +48,8 @@
 
 Assets/**/*Stylized*Mushroom*/
 Assets/**/*groundtexture*pack/
-Assets/**/Standard*Asset*/
-Assets/**/Free_Rocks*/
+#Assets/**/Standard*Asset*/
+#Assets/**/Free_Rocks*/
 Assets/**/Weapons*/
 Assets/**/Modern*Weapons*/
 Assets/**/CombatCharacterPack*/
