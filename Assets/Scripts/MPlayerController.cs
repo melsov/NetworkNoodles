@@ -11,6 +11,23 @@ using UnityEngine.UI;
 using Mel.Math;
 using Mel.Weapons;
 using Mel.Item;
+#if UNITY_EDITOR
+using UnityEditor;
+
+[CustomEditor(typeof(MPlayerController))]
+public class EditorMPlayerControler : Editor
+{
+    public override void OnInspectorGUI() {
+        base.OnInspectorGUI();
+
+        if(GUILayout.Button("Debug Info")) {
+            var mp = (MPlayerController)target;
+            mp.dbugNetworkID();
+        }
+    }
+}
+
+#endif
 
 public struct MPlayerData
 {
@@ -70,7 +87,8 @@ public class MPlayerController : NetworkBehaviour {
     private Collider collidr;
 
     DebugHUD debugHUD;
-
+    [SyncVar]
+    bool testMute;
 
     [SerializeField]
     bool showDebugLineRenderer;
@@ -98,11 +116,20 @@ public class MPlayerController : NetworkBehaviour {
     Score score;
     private AudioListener audioListenr;
 
-    Arsenal arsenal;
+    Arsenal _arsenal;
+    Arsenal arsenal {
+        get {
+            if(!_arsenal) {
+                _arsenal = GetComponentInChildren<Arsenal>();
+            }
+            return _arsenal;
+        }
+    }
 
     Respawner _respawner;
     private bool isDead;
     bool suspendFixedUpdateMovement;
+    bool suspendControls;
 
     Respawner respawner {
         get {
@@ -126,7 +153,6 @@ public class MPlayerController : NetworkBehaviour {
         score.SetPlayerDataLocal(pd);
     }
 
-
     void updateDbugLR() {
         if(!showDebugLineRenderer) {
             dbugLR.SetPosition(0, Vector3.zero);
@@ -141,9 +167,12 @@ public class MPlayerController : NetworkBehaviour {
     void Update()
     {
 
-        updateDbugLR();
+        //updateDbugLR();
 
         if(!isLocalPlayer) {
+            return;
+        }
+        if (suspendControls) {
             return;
         }
 
@@ -173,7 +202,12 @@ public class MPlayerController : NetworkBehaviour {
             else {
                 ikAimWeapon.shouldAim = false;
             }
-        } 
+        } else {
+            //DEBUG
+            if (Input.GetMouseButtonDown(0)) {
+                DebugHUD.Debugg("Not armed " );
+            }
+        }
 
         if (Input.GetKeyDown(KeyCode.Space)) {
             StartCoroutine(jump());
@@ -187,9 +221,17 @@ public class MPlayerController : NetworkBehaviour {
         if(Input.GetKeyDown(KeyCode.H)) {
             BeDead();
         }
+        if(Input.GetKeyDown(KeyCode.M)) {
+            CmdToggleTestMute();
+        }
 
         inputXZ = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
         animState.updateAnimator(new StateInput() { xz = inputXZ });
+    }
+
+    [Command]
+    void CmdToggleTestMute() {
+        testMute = !testMute;
     }
 
     private IEnumerator jump() {
@@ -216,8 +258,7 @@ public class MPlayerController : NetworkBehaviour {
         Vector3 input = new Vector3(inputXZ.x, 0f, inputXZ.y);
 
         Vector3 targetPos = transform.position + transform.TransformDirection(input.normalized) * speed;
-        Vector3 nextPos = Vector3.Lerp(transform.position, targetPos, xzLerpMultiplier * Time.deltaTime);
-        rb.MovePosition(nextPos);
+        rb.MovePosition(Vector3.Lerp(transform.position, targetPos, xzLerpMultiplier * Time.deltaTime));
 
         lookWhereCamLooks();
     }
@@ -254,7 +295,8 @@ public class MPlayerController : NetworkBehaviour {
     public struct DamageInfo
     {
         public int amount;
-        public MPlayerController source;
+        //public MPlayerController source;
+        public NetworkInstanceId netId;
     }
 
 
@@ -265,8 +307,15 @@ public class MPlayerController : NetworkBehaviour {
             return;
         }
 
-        if (aud) {
+        Weapon weapon = arsenal.equipedWeapon;
+        Assert.IsTrue(weapon);
+
+        //weapon.playFire();
+
+        if (!testMute && aud) {
             aud.Play();
+        } else if (testMute) {
+            DebugHUD.Debugg("test muted");
         }
 
         StartCoroutine(shotTimer());
@@ -275,31 +324,36 @@ public class MPlayerController : NetworkBehaviour {
 
         RaycastHit shootHitInfo;
 
-        if (Physics.Raycast(origin, direction, out shootHitInfo, 1000f)) {
-
-            //destination = shootHitInfo.point;
-
-            var health = shootHitInfo.collider.GetComponent<Health>();
-            if (health && health != localHealth) {
-                health.TakeDamage(new DamageInfo()
-                {
-                    amount = 10,
-                    source = this,
-                });
+        if (!weapon.bulletPrefab.collisionDealsDamage) {
+            if (Physics.Raycast(origin, direction, out shootHitInfo, 1000f)) {
+                var health = shootHitInfo.collider.GetComponent<Health>();
+                if (health && health != localHealth) {
+                    health.TakeDamage(new DamageInfo()
+                    {
+                        amount = 10,
+                        netId = netId
+                    });
+                }
             }
         }
 
-        var bullet = (GameObject) Instantiate(
-                bulletPrefab,
+        var goBullet = (GameObject) Instantiate(
+                weapon.bulletPrefab.gameObject,
                 bulletSpawn.position,
                 bulletSpawn.rotation);
 
-        bullet.GetComponent<Rigidbody>().velocity = direction * 5f;
-        bullet.GetComponent<Bullet>().info = new Bullet.BulletInfo() { destination = destination }; 
-        NetworkServer.Spawn(bullet);
+        goBullet.GetComponent<Rigidbody>().velocity = direction;
+        var bullet = goBullet.GetComponent<Bullet>();
+        bullet.damage = new DamageInfo()
+        {
+            amount = bullet. collisionDamage,
+            netId = netId
+        };
+        goBullet.GetComponent<Bullet>().info = new Bullet.BulletInfo() { destination = destination }; 
+        NetworkServer.Spawn(goBullet);
 
-        // Destroy the bullet after 5 seconds
-        Destroy(bullet, 5.0f);
+        // Destroy the bullet after 25 seconds
+        Destroy(goBullet, 25.0f);
     }
 
     [ClientRpc]
@@ -325,7 +379,6 @@ public class MPlayerController : NetworkBehaviour {
 
             yield return new WaitForSeconds(timeBetweenShots);
             canShoot = true;
-
 
             //animState.shooting = false;
         }
@@ -374,6 +427,7 @@ public class MPlayerController : NetworkBehaviour {
 
     private IEnumerator GetLoadOut() {
         var loadOutGUI = FindObjectOfType<LoadOutGUI>();
+        suspendControls = true;
         thirdCam.uiMode(true);
         while(!loadOutGUI.GetLoadOut( (LoadOutGUI.LoadOutData loadOutData) =>
         {
@@ -384,7 +438,7 @@ public class MPlayerController : NetworkBehaviour {
             score.SetPlayerData(data, 0);
 
             thirdCam.uiMode(false);
-
+            suspendControls = false;
             teleportToRespawnLocation();
 
         })) {
@@ -399,9 +453,10 @@ public class MPlayerController : NetworkBehaviour {
 
         thirdCam = FindObjectOfType<ThirdCam>();
         thirdCam.Target = thirdCamFollowTarget;
+        thirdCam.m_AimSettings = AimSettings.DefaultAimSettings();
 
-        arsenal = GetComponentInChildren<Arsenal>();
-
+        //arsenal = GetComponentInChildren<Arsenal>();
+        arsenal.Setup();
 
         localHealth = GetComponent<Health>();
         audioListenr = gameObject.AddComponent<AudioListener>();
@@ -419,14 +474,6 @@ public class MPlayerController : NetworkBehaviour {
     }
 
 
-    public void ClientOnSwitchedWeapon(int wIndex) {
-        namePlate.text = string.Format("{0} (weap: {1})", playerData.displayName, wIndex);
-        if (isLocalPlayer) {
-            if (arsenal.isArmed) {
-                thirdCam.m_AimSettings = arsenal.equipedWeapon.aimSettings;
-            }
-        }
-    }
 
 
     private void Start() {
@@ -435,6 +482,12 @@ public class MPlayerController : NetworkBehaviour {
 
         if (!isLocalPlayer) {
             setNamePlate();
+        }
+    }
+
+    public void dbugNetworkID() {
+        foreach(var id in GetComponentsInChildren<NetworkIdentity>(true)) {
+            Debug.Log(string.Format("{0} ", id.name));
         }
     }
 
@@ -457,23 +510,54 @@ public class MPlayerController : NetworkBehaviour {
     }
 
     public void testGetNewScore(Scoreboard.LedgerEntry le) {
-        dbugWithName("set name plate");
-        //setNamePlate();
+        //dbugWithName("set name plate");
+        setNamePlate();
     }
 
     public string cliServer {
         get { return string.Format("{0}{1}", isServer ? "Serv" : "", isClient ? "Cli" : ""); }
     }
 
+    public void handlePickup(Pickup pickup, PickupSpawner pkSpawner) {
+        if(!isLocalPlayer) { return; }
+        pickup.getGiven(this);
+        CmdToggleSpawner(pkSpawner.netId);
+    }
+
+    [Command]
+    void CmdToggleSpawner(NetworkInstanceId pkSpawnerID) {
+        var pks = NetworkServer.FindLocalObject(pkSpawnerID).GetComponent<PickupSpawner>();
+        pks.Give();
+    }
+
     internal void acquireWeapon(int weaponIndex) {
-        arsenal.setAvailable(weaponIndex, true);
-        if(arsenal.count == 1) {
-            arsenal.Equip(weaponIndex);
+        arsenal.SetAvailable(weaponIndex, true);
+        //if(arsenal.count == 1) {
+        //    DebugHUD.Debugg("aq weap: " + weaponIndex);
+        //    arsenal.Equip(weaponIndex);
+        //}
+    }
+
+
+    public void ClientOnSwitchedWeapon(int wIndex) {
+        Weapon weapon = arsenal.equipedWeapon;
+        if(weapon) {
+            aud.clip = weapon.fireAudio.clip;
+        }
+
+        namePlate.text = string.Format("{0} (weap: {1})", playerData.displayName, arsenal.equipedSVIndex);
+        if (isLocalPlayer) {
+            if (weapon) {
+                thirdCam.m_AimSettings = weapon.aimSettings;
+            }
+            else {
+                thirdCam.m_AimSettings = AimSettings.DefaultAimSettings();
+            }
         }
     }
 
     public void loseWeapon(int weaponIndex) {
-        arsenal.setAvailable(weaponIndex, false);
+        arsenal.SetAvailable(weaponIndex, false);
     }
 
     public void dbugWithName(string s) {

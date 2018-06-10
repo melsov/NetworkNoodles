@@ -18,16 +18,28 @@ public class Health : NetworkBehaviour
 
     public void TakeDamage(MPlayerController.DamageInfo damageInfo) {
 
-        if(!isServer) { return; }
+        if(!isServer) {
+            DebugHUD.Debugg("TDmg not SRV");
+            return;
+        }
 
         if(Invulnerable) {
+            DebugHUD.Debugg("Invul");
             return;
         }
 
         currentHealth -= damageInfo.amount;
+        var testLocalObj = NetworkServer.FindLocalObject(damageInfo.netId);
+        DebugHUD.Debugg("damage: " + damageInfo.amount + "src: " + (testLocalObj ? testLocalObj.name : "null"));
+
         if (currentHealth <= 0) {
             currentHealth = maxHealth;
-            damageInfo.source.RpcGetAKill();
+            var damageSource = NetworkServer.FindLocalObject(damageInfo.netId);
+            var player = damageSource.GetComponent<MPlayerController>();
+            if(player) {
+                player.RpcGetAKill();
+            }
+            //damageInfo.source.RpcGetAKill();
             RpcRespawn();
         }
     }
@@ -39,8 +51,11 @@ public class Health : NetworkBehaviour
         }
     }
 
+    //
+    // currentHealth callback
+    //
     void OnChangeHealth(int currHealth) {
         healthBar.sizeDelta = new Vector2(currHealth, healthBar.sizeDelta.y);
-
     }
+
 }

@@ -35,15 +35,14 @@ namespace Mel.Item
             OnWasPickedUp.AddListener(pue);
         }
 
-        private void OnTriggerEnter(Collider other) {
-            if(!available) { return; }
-            MPlayerController mp = other.GetComponent<MPlayerController>();
-            if(mp) {
-                getGiven(mp);
-                OnWasPickedUp.Invoke(this);
-            }
-            Destroy(gameObject);
-        }
+        //private void OnTriggerEnter(Collider other) {
+        //    //if(!available) { return; }
+        //    MPlayerController mp = other.GetComponent<MPlayerController>();
+        //    if (mp) {
+        //        GetComponentInParent<PickupSpawner>().OnPlayerPickedup(mp, this);
+        //    }
+        //    //Destroy(gameObject);
+        //}
 
         public abstract void getGiven(MPlayerController mp);
 

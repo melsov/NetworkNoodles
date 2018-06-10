@@ -17,6 +17,9 @@ public class LoadOutGUI : MonoBehaviour
     [SerializeField]
     Button startButton;
 
+    [SerializeField]
+    bool DebugAutoRandomLoadOutData;
+
     public struct LoadOutData
     {
         public string displayName;
@@ -35,9 +38,22 @@ public class LoadOutGUI : MonoBehaviour
             return false;
         }
         callback = _callback;
+        if(DebugAutoRandomLoadOutData) {
+            nameText.text = RandomString(3);
+            OnSubmittedName();
+            return true;
+        }
         loGUI.gameObject.SetActive(true);
         startButton.interactable = isInputGood();
         return true;
+    }
+
+    string RandomString(int length) {
+        char[] result = new char[length];
+        for(int i=0; i<length; ++i) {
+            result[i] = (char)UnityEngine.Random.Range(65, 90);
+        }
+        return new string(result);
     }
 
     private bool isInputGood() {

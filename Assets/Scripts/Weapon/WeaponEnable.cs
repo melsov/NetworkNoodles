@@ -7,11 +7,13 @@ using System.Text;
 
 namespace Mel.Weapons
 {
+    
+
     public class WeaponEnable : MonoBehaviour
     {
         public Weapon weapon { get; private set; }
 
-        public virtual bool enabledd {
+        public virtual bool isEnabled {
             get {
                 return weapon.gameObject.activeSelf;
             }

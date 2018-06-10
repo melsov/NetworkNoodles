@@ -18,11 +18,13 @@ public class Respawner : MonoBehaviour
 
     [SerializeField] float timeOutTime = 8f;
 
+    [SerializeField, MinMaxRange(0, 1)] MinMaxRange respawnBagelArea;
+
     Vector3 GetRandomLocationXZ() {
         float radius = bounds.size.xz().lesserComponent() / 2f;
         radius *= .95f;
         float ang = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
-        radius = UnityEngine.Random.Range(radius / 2f, radius);
+        radius = UnityEngine.Random.Range(respawnBagelArea.rangeStart * radius, respawnBagelArea.rangeEnd * radius);
         var loc = new Vector3(radius * Mathf.Cos(ang), 0f, radius * Mathf.Sin(ang));
         loc += terrain.transform.position + bounds.size * .5f; // bounds.center;
         loc.y = 0f;

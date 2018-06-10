@@ -13,6 +13,7 @@ namespace Mel.Item
         int weaponIndex;
 
         public override void getGiven(MPlayerController mp) {
+            Debug.Log("weapon get given");
             mp.acquireWeapon(weaponIndex);
         }
     }

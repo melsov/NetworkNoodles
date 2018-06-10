@@ -1,14 +1,35 @@
 ﻿using System.Collections;
 using UnityEngine;
+using UnityEngine.Networking;
 
-public class Bullet : MonoBehaviour {
+public class Bullet : NetworkBehaviour {
 
-    [SerializeField] float displayTime = 1f;
+    [SerializeField] protected float displayTime = 1f;
 
     [SerializeField] LineRenderer lr;
 
     [SerializeField] float laserLength = 4f;
     [SerializeField] float laserTravel = 12f;
+
+    [SyncVar]
+    public MPlayerController.DamageInfo damage;
+    [SerializeField] public int collisionDamage = 10;
+    [SerializeField] ParticleSystem explodeParticles;
+
+    public void SetDamageSourceId(NetworkInstanceId _netId) {
+        if(!isServer) {
+            DebugHUD.Debugg("not server set dmg src id");
+            return;
+        }
+        DebugHUD.Debugg("setting dmg ");
+        damage = new MPlayerController.DamageInfo()
+        {
+            amount = collisionDamage,
+            netId = _netId
+        };
+    }
+
+    [SerializeField] public bool collisionDealsDamage;
 
     public struct BulletInfo
     {
@@ -26,7 +47,7 @@ public class Bullet : MonoBehaviour {
      * We could piggy-back on rb velocity to infer the destination
      * (But this seems needlessly baroque. just laser forward a fixed short distance)
      */
-    private IEnumerator flashAndDie(Vector3 dir) {
+    protected virtual IEnumerator flashAndDie(Vector3 dir) {
 
         //var dir = destination - transform.position;
         var start = transform.position;
@@ -66,6 +87,28 @@ public class Bullet : MonoBehaviour {
 
 
         Destroy(gameObject); //TEST should destroy immediately
+    }
+
+    private void OnCollisionEnter(Collision collision) {
+
+        if (collisionDealsDamage) {
+            var health = collision.gameObject.GetComponentInParent<Health>(); // collision.collider.GetComponent<Health>();
+            if(health) {
+                DebugHUD.Debugg("BulletColl " + collision.collider.name);
+                health.TakeDamage(damage);
+                GetComponent<Collider>().enabled = false;
+                GetComponent<Rigidbody>().isKinematic = true;
+                GetComponent<Renderer>().enabled = false;
+                if (explodeParticles) {
+                    explodeParticles.Play();
+                    Destroy(gameObject, explodeParticles.main.duration);
+                }
+                else {
+                    Destroy(gameObject);
+                }
+            }
+        }
+
     }
 
     /*
@@ -115,5 +158,5 @@ public class Bullet : MonoBehaviour {
     //}
 
 
-    
+
 }
