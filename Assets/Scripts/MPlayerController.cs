@@ -312,9 +312,11 @@ public class MPlayerController : NetworkBehaviour {
 
         //weapon.playFire();
 
-        if (!testMute && aud) {
+        if (!testMute && aud) 
+        {
             aud.Play();
-        } else if (testMute) {
+        } else if (testMute) 
+        {
             DebugHUD.Debugg("test muted");
         }
 
@@ -324,10 +326,13 @@ public class MPlayerController : NetworkBehaviour {
 
         RaycastHit shootHitInfo;
 
-        if (!weapon.bulletPrefab.collisionDealsDamage) {
-            if (Physics.Raycast(origin, direction, out shootHitInfo, 1000f)) {
+        if (!weapon.bulletPrefab.collisionDealsDamage) 
+        {
+            if (Physics.Raycast(origin, direction, out shootHitInfo, 1000f)) 
+            {
                 var health = shootHitInfo.collider.GetComponent<Health>();
-                if (health && health != localHealth) {
+                if (health && health != localHealth) 
+                {
                     health.TakeDamage(new DamageInfo()
                     {
                         amount = 10,
