@@ -1,7 +1,7 @@
 fileFormatVersion: 2
 guid: 192fb39e37d07e04ea70d5612912a9b7
 ModelImporter:
-  serializedVersion: 22
+  serializedVersion: 23
   fileIDToRecycleName:
     100000: Armature
     100002: Body
@@ -178,6 +178,7 @@ ModelImporter:
     13700008: Hair
     13700010: Shoes
     13700012: Tops
+    2186277476908879412: ImportLogs
   externalObjects:
   - first:
       type: UnityEngine:Material
@@ -254,6 +255,8 @@ ModelImporter:
     secondaryUVHardAngle: 88
     secondaryUVPackMargin: 4
     useFileScale: 1
+    previousCalculatedGlobalScale: 1
+    hasPreviousCalculatedGlobalScale: 0
   tangentSpace:
     normalSmoothAngle: 60
     normalImportMode: 0
